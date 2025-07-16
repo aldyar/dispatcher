@@ -1,11 +1,14 @@
 from fastapi import APIRouter, HTTPException
 from database.pydantic import LeadRequest,LeadSchema
-from app.generator import send_to_openai
+from app.generator import send_to_openai,ask_gpt_to_categorize
 from typing import List
 from function.lead_function import LeadFunction
 from function.crm_requserts import CRM_DB
 from function.operator_function import OperatorFunction
+from function.tiktoken_function import TiktokenFunction
 import json
+import time
+import asyncio
 
 router = APIRouter(
     prefix="/leads",
@@ -35,6 +38,8 @@ async def receive_leads(leads: List[LeadSchema]):
 @router.post('/all_leads')
 async def export_recent_leads():
     print('INFO______ /all_leads')
+    start_time = time.time()
+
 
     #Сперва получаем операторов из CRM
     operators = await CRM_DB.get_operator_id_name()
@@ -50,7 +55,40 @@ async def export_recent_leads():
     print(f"Заявки успешно добавлены: {len(leads)}")
 
     leads = await LeadFunction.fetch_unlabeled_leads()
+    print(f"Всего лидов без категории: {len(leads)}")
     
+    batches = await TiktokenFunction.split_leads_by_tokens(leads, 1500)
+    print(f"Подготовлено батчей: {len(batches)}")
+
+    all_results = []
+    for i, batch in enumerate(batches):
+        print(f"Обработка батча {i+1}/{len(batches)}...")
+        ids = [lead['id'] for lead in batch]
+        #print(f"IDs в батче: {ids}")
+
+        try:
+            categorized = await ask_gpt_to_categorize(batch)
+            print(f"✅ Получено {len(categorized)} категорий")
+            # print("✅ Ответ от GPT:")
+            # print(categorized)
+        except Exception as e:
+            print("❌ Ошибка при обращении к GPT:", e)
+            continue  # переходим к следующему батчу
+
+        try:
+            await LeadFunction.update_lead_categories(categorized)
+            print(f"✅ Категории обновлены для {len(categorized)} лидов")
+        except Exception as e:
+            print("❌ Ошибка при обновлении категорий в базе данных:", e)
+            continue
+
+        all_results.extend(categorized)
+        await asyncio.sleep(1)
+
+    end_time = time.time()
+    print(f"\n✅ Обработка завершена. Всего обработано: {len(all_results)} лидов.")
+    print(f"⏱ Время выполнения: {end_time - start_time:.2f} секунд.")
+
     # with open("test_leads.json", "w", encoding="utf-8") as f:
     #     json.dump(leads, f, ensure_ascii=False, indent=2)
 
@@ -77,4 +115,4 @@ async def test_handler():
 
 @router.post('/testto')
 async def test_handler():
-    return {'OK!'}
+    await LeadFunction.fetch_unlabeled_leads()

@@ -89,7 +89,7 @@ class LeadFunction:
         stmt = select(Lead.id, Lead.message).where(
             Lead.category.is_(None),
             Lead.message.is_not(None),
-            Lead.operator.in_(VALID_OPERATORS)
+            Lead.operator.in_(valid_operator_ids)
         )
         result = await session.execute(stmt)
         rows = result.all()
