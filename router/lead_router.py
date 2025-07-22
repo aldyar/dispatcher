@@ -6,6 +6,7 @@ from function.lead_function import LeadFunction
 from function.crm_requserts import CRM_DB
 from function.operator_function import OperatorFunction
 from function.tiktoken_function import TiktokenFunction
+from function.category_function import CategoryFunction
 import json
 import time
 import asyncio
@@ -95,9 +96,9 @@ async def export_recent_leads():
     # return {"message": f"{len(leads)} заявок сохранено в test_leads.json"}
 
 
-@router.post("/test")
-async def test_handler():
-    print("/Test started")
+@router.post("/operators")
+async def operator_handler():
+    print("/Operator started")
 
     # Шаг 1: Получение операторов из CRM
     operators = await CRM_DB.get_operator_id_name()
@@ -115,4 +116,14 @@ async def test_handler():
 
 @router.post('/testto')
 async def test_handler():
-    await LeadFunction.fetch_unlabeled_leads()
+    await CategoryFunction.update_category_stats()
+
+@router.post('/testto2')
+async def test_handler():
+    result = await CategoryFunction.generate_compact_stats_text()
+    print(result)
+    ai_response = await send_to_openai(result)
+    tokens = await TiktokenFunction.async_count_tokens(result)
+    print(f"Токенов: {tokens}")
+    print(len(result))
+    return {"answer": ai_response}

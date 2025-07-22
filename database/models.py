@@ -36,6 +36,18 @@ class Operator(Base):
     name: Mapped[str] = mapped_column(Text, nullable=True)
 
 
+class CategoryStats(Base):
+    __tablename__ = 'category_stats'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    operator_id: Mapped[int] = mapped_column(Integer, nullable=True)
+    operator_name: Mapped[str] = mapped_column(Text, nullable=True)
+    category: Mapped[str] = mapped_column(String(255), nullable=True)
+    three_month: Mapped[str] = mapped_column(String(64), nullable=True)
+    last_week: Mapped[str] = mapped_column(String(64), nullable=True)
+    last_month: Mapped[str] = mapped_column(String(64), nullable=True)
+
+
 async def async_main():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

@@ -81,3 +81,51 @@ async def ask_gpt_to_categorize(batch: List[Dict[str, str]]) -> List[Dict[str, s
         print("Ошибка парсинга JSON:", e)
         print("Ответ GPT:", response.choices[0].message.content)
         return []
+    
+
+async def send_to_openai(message: str) -> str:
+    url = "https://api.openai.com/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {AI_TOKEN}",  # ← замени на свой ключ
+        "Content-Type": "application/json"
+    }
+    prompt = f"""
+Ты — умный аналитик. Получаешь статистику операторов:
+
+📋 Формат данных:
+Имя|Категория|All:всего/усп.(%)|W:всего/усп.(%)|M:всего/усп.(%)
+
+📌 Условия:
+— Учитывай только тех операторов, у кого за нужный период (W, M, All) минимум 5 заявок
+— Не включай в ответ операторов с меньшим числом — даже если у них 100%
+— Отвечай кратко, понятно и по-человечески
+— Укажи имя, категорию, всего заявок, успешных и процент
+— Не пиши формулы
+
+Данные:
+{message}
+
+Вопрос: Сколько общий заявок было за последний месяц ?
+"""
+    data = {
+        "model": "gpt-4o",
+        "messages": [
+            {"role": "user", "content": prompt}
+        ]
+    }
+    try:
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()  # выбросит ошибку, если код ответа не 2xx
+        res_json = response.json()
+
+        if "choices" in res_json:
+            return res_json["choices"][0]["message"]["content"]
+        elif "error" in res_json:
+            raise Exception(f"Ошибка от OpenAI: {res_json['error']['message']}")
+        else:
+            raise Exception(f"Неожиданный ответ от OpenAI: {res_json}")
+            
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Ошибка при запросе к OpenAI: {str(e)}")
+    except Exception as e:
+        raise Exception(f"Ошибка обработки ответа OpenAI: {str(e)}")
