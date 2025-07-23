@@ -7,7 +7,7 @@ class LeadRequest(BaseModel):
     phone: str = Field(..., example="+77001234567")
     message: Optional[str] = Field(None, example="Хочу заказать консультацию")
     city: Optional[str] = Field(None, example="Алматы")
-    source: Literal["website", "instagram", "whatsapp", "facebook", "telegram", "other"] = Field(..., example="website")
+    source: str = Field(..., example="website")
 
 
 from pydantic import BaseModel

@@ -7,7 +7,7 @@ from sqlalchemy import and_,func,not_
 from sqlalchemy.sql import exists
 from database.pydantic import LeadSchema
 from typing import List, Dict
-
+from function.crm_requserts import CRM_DB
 def connection(func):
     async def inner(*args, **kwargs):
         async with async_session() as session:
@@ -16,40 +16,43 @@ def connection(func):
 
 class OperatorFunction:
 
-    @connection
-    async def sync_operators_from_leads(session):
-        stmt = select(Lead.operator).distinct().where(Lead.operator.isnot(None))
-        result = await session.execute(stmt)
-        raw_operators = [row[0] for row in result.fetchall()]
+    # Вроде не используется нигде пока что 
+    # @connection
+    # async def sync_operators_from_leads(session):
+    #     stmt = select(Lead.operator).distinct().where(Lead.operator.isnot(None))
+    #     result = await session.execute(stmt)
+    #     raw_operators = [row[0] for row in result.fetchall()]
 
-        valid_operator_ids = set()
-        for raw_op in raw_operators:
-            try:
-                op_id = int(raw_op)
-                valid_operator_ids.add(op_id)
-            except ValueError:
-                continue  # пропускаем строки вроде "Не выбран", "None", "abc"
+    #     valid_operator_ids = set()
+    #     for raw_op in raw_operators:
+    #         try:
+    #             op_id = int(raw_op)
+    #             valid_operator_ids.add(op_id)
+    #         except ValueError:
+    #             continue  # пропускаем строки вроде "Не выбран", "None", "abc"
 
-        if not valid_operator_ids:
-            print("Нет валидных операторов для вставки.")
-            return
+    #     if not valid_operator_ids:
+    #         print("Нет валидных операторов для вставки.")
+    #         return
 
-        # Получаем уже существующие operator_id
-        existing_stmt = select(Operator.operator_id).where(Operator.operator_id.in_(valid_operator_ids))
-        existing_result = await session.execute(existing_stmt)
-        existing_ids = {row[0] for row in existing_result.fetchall()}
+    #     # Получаем уже существующие operator_id
+    #     existing_stmt = select(Operator.operator_id).where(Operator.operator_id.in_(valid_operator_ids))
+    #     existing_result = await session.execute(existing_stmt)
+    #     existing_ids = {row[0] for row in existing_result.fetchall()}
 
-        new_ids = valid_operator_ids - existing_ids
-        if not new_ids:
-            print("Все операторы уже есть в таблице.")
-            return
+    #     new_ids = valid_operator_ids - existing_ids
+    #     if not new_ids:
+    #         print("Все операторы уже есть в таблице.")
+    #         return
 
-        for op_id in new_ids:
-            session.add(Operator(operator_id=op_id, name=None))  # Или name="Без имени"
+    #     for op_id in new_ids:
+    #         session.add(Operator(operator_id=op_id, name=None))  # Или name="Без имени"
 
-        await session.commit()
-        print(f"✅ Добавлено новых операторов: {len(new_ids)}")
+    #     await session.commit()
+    #     print(f"✅ Добавлено новых операторов: {len(new_ids)}")
 
+
+    # OK
     @connection
     async def set_operators(session, operators: list[tuple[int, str]]):
         for operator_id, name in operators:
@@ -59,8 +62,39 @@ class OperatorFunction:
             session.add(Operator(operator_id=operator_id, name=name))
         await session.commit()
 
+    # OK
     @connection
     async def get_valid_operator_ids(session) -> list[int]:
         stmt = select(Operator.operator_id)
         result = await session.execute(stmt)
         return [row[0] for row in result.all()]
+
+
+    @connection
+    async def update_operators_online_status(session):
+        # Получаем всех операторов из таблицы operators
+        result = await session.execute(select(Operator.operator_id))
+        operator_ids = [row[0] for row in result.all()]
+
+        # Получаем онлайн-статусы из CRM (таблица users)
+        online_statuses = await CRM_DB.get_operators_online_status(operator_ids)
+
+        # Преобразуем в словарь для быстрого доступа
+        status_map = {item["id"]: item["online"] for item in online_statuses}
+
+        # Обновляем статус в таблице operators
+        for operator_id, is_online in status_map.items():
+            await session.execute(
+                update(Operator)
+                .where(Operator.operator_id == operator_id)
+                .values(online=is_online)
+            )
+
+        await session.commit()
+
+
+    @connection
+    async def get_all_operators(session):
+        stmt = select(Operator)
+        result = await session.scalars(stmt)
+        return result.all()

@@ -34,6 +34,7 @@ class Operator(Base):
 
     operator_id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(Text, nullable=True)
+    online: Mapped[bool] = mapped_column(Boolean,default=False)
 
 
 class CategoryStats(Base):

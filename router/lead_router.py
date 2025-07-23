@@ -1,46 +1,44 @@
 from fastapi import APIRouter, HTTPException
 from database.pydantic import LeadRequest,LeadSchema
-from app.generator import send_to_openai,ask_gpt_to_categorize
+from app.generator import send_to_openai,ask_gpt_to_categorize, send_to_openai_req
 from typing import List
 from function.lead_function import LeadFunction
 from function.crm_requserts import CRM_DB
 from function.operator_function import OperatorFunction
 from function.tiktoken_function import TiktokenFunction
 from function.category_function import CategoryFunction
-import json
 import time
 import asyncio
 
-router = APIRouter(
-    prefix="/leads",
-    tags=["Leads"]
-)
+router = APIRouter(tags=["Leads"])
 
-@router.post("/")
+
+@router.post("/assign-lead")
 async def receive_lead(lead: LeadRequest):
     # Используем поле message как диалог
     dialog_text = lead.message
-    category = send_to_openai(dialog_text)  # Получаем направление права
+    category = send_to_openai_req(dialog_text)  # Получаем направление права
+
+    best_operator_id = await CategoryFunction.get_best_available_operator_by_category(category)
 
     return {
-        "status": "ok",
-        "category": category
+        **lead.dict(),  # ← возвращает все поля из запроса
+        "category": category,
+        "best_operator_id": best_operator_id
     }
 
-@router.post("/import")
-async def receive_leads(leads: List[LeadSchema]):
+async def set_lead_ster(leads: List[LeadSchema]):
     try:
         await LeadFunction.set_leads(leads)
         return {"message": f"Заявки успешно добавлены: {len(leads)}"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+    
 
-
-@router.post('/all_leads')
-async def export_recent_leads():
-    print('INFO______ /all_leads')
+# @router.post('/main_weely')
+async def main_weely():
+    print('INFO_____MainWeekly')
     start_time = time.time()
-
 
     #Сперва получаем операторов из CRM
     operators = await CRM_DB.get_operator_id_name()
@@ -52,7 +50,7 @@ async def export_recent_leads():
 
     #Сохранение заявок в БД
     validated_leads = [LeadSchema(**lead) for lead in leads]
-    await receive_leads(validated_leads)
+    await set_lead_ster(validated_leads)
     print(f"Заявки успешно добавлены: {len(leads)}")
 
     leads = await LeadFunction.fetch_unlabeled_leads()
@@ -86,44 +84,15 @@ async def export_recent_leads():
         all_results.extend(categorized)
         await asyncio.sleep(1)
 
+    await CategoryFunction.update_category_stats()
+    print('INFO_____Статистика обновлена ')
+
     end_time = time.time()
     print(f"\n✅ Обработка завершена. Всего обработано: {len(all_results)} лидов.")
     print(f"⏱ Время выполнения: {end_time - start_time:.2f} секунд.")
 
-    # with open("test_leads.json", "w", encoding="utf-8") as f:
-    #     json.dump(leads, f, ensure_ascii=False, indent=2)
-
-    # return {"message": f"{len(leads)} заявок сохранено в test_leads.json"}
 
 
-@router.post("/operators")
-async def operator_handler():
-    print("/Operator started")
-
-    # Шаг 1: Получение операторов из CRM
-    operators = await CRM_DB.get_operator_id_name()
-    print(f"Найдено операторов с ролью 3: {len(operators)}")
-
-    # Шаг 2: Запись операторов в БД
-    await OperatorFunction.set_operators(operators)
-    print("Операторы записаны в БД:")
-
-    # Печать списка
-    for op_id, name in operators:
-        print(f"  ID: {op_id}, Name: {name}")
-
-    return {"status": "ok", "inserted": len(operators)}
-
-@router.post('/testto')
-async def test_handler():
-    await CategoryFunction.update_category_stats()
-
-@router.post('/testto2')
-async def test_handler():
-    result = await CategoryFunction.generate_compact_stats_text()
-    print(result)
-    ai_response = await send_to_openai(result)
-    tokens = await TiktokenFunction.async_count_tokens(result)
-    print(f"Токенов: {tokens}")
-    print(len(result))
-    return {"answer": ai_response}
+#######################################################################################################################
+#######################################################################################################################
+#######################################################################################################################

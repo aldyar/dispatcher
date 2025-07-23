@@ -14,24 +14,40 @@ def connection(func):
             return await func(session, *args, **kwargs)
     return inner
 
-VALID_OPERATORS = {'231', '233', '239', '245', '271', '321', '444', '541', '543'}
+
 class LeadFunction:
 
+    # OK
     @connection
     async def set_leads(session, leads_data: list[LeadSchema]):
-        for item in leads_data:
-            lead = Lead(
-                id=item.id,
-                message=item.message,
-                status=item.status,
-                source=item.source,
-                operator=item.operator,
-                created_at=item.created_at,
-                office=item.office,
-                city=item.city
-            )
-            session.add(lead)
-        await session.commit()
+        try:
+            # Сначала создаём все объекты
+            new_leads = []
+            for item in leads_data:
+                lead = Lead(
+                    id=item.id,
+                    message=item.message,
+                    status=item.status,
+                    source=item.source,
+                    operator=item.operator,
+                    created_at=item.created_at,
+                    office=item.office,
+                    city=item.city
+                )
+                new_leads.append(lead)
+
+            # Удаляем только после успешной подготовки
+            await session.execute(delete(Lead))  # очищаем всю таблицу
+
+            # Добавляем новые
+            session.add_all(new_leads)
+
+            await session.commit()
+
+        except Exception as e:
+            await session.rollback()
+            raise e  # или логируй, или верни ошибку
+
 
     def serialize_leads(leads):
         # преобразуем datetime → str
@@ -42,45 +58,47 @@ class LeadFunction:
 
 
     
+    # Пока не используется
+    # @connection
+    # async def fetch_two_leads_per_operator(session) -> list[tuple[int, str]]:
+    #     all_leads = []
 
-    @connection
-    async def fetch_two_leads_per_operator(session) -> list[tuple[int, str]]:
-        all_leads = []
+    #     for op in VALID_OPERATORS:
+    #         stmt = (
+    #             select(Lead.id, Lead.message)
+    #             .where(
+    #                 Lead.operator == op,
+    #                 Lead.category.is_(None),
+    #                 Lead.message.is_not(None)
+    #             )
+    #             .limit(2)
+    #         )
+    #         result = await session.execute(stmt)
+    #         leads = result.all()
+    #         all_leads.extend(leads)
 
-        for op in VALID_OPERATORS:
-            stmt = (
-                select(Lead.id, Lead.message)
-                .where(
-                    Lead.operator == op,
-                    Lead.category.is_(None),
-                    Lead.message.is_not(None)
-                )
-                .limit(2)
-            )
-            result = await session.execute(stmt)
-            leads = result.all()
-            all_leads.extend(leads)
-
-        return all_leads
+    #     return all_leads
     
-    @connection
-    async def update_lead_categories(session, categorized_data: List[Dict[str, str]]):
-        """
-        Обновляет категории у лидов на основе результата GPT.
-        """
-        for item in categorized_data:
-            lead_id = item["id"]
-            category = item["category"]
+    # Дубль
+    # @connection
+    # async def update_lead_categories(session, categorized_data: List[Dict[str, str]]):
+    #     """
+    #     Обновляет категории у лидов на основе результата GPT.
+    #     """
+    #     for item in categorized_data:
+    #         lead_id = item["id"]
+    #         category = item["category"]
 
-            # Найдём лид по id
-            result = await session.execute(select(Lead).where(Lead.id == lead_id))
-            lead = result.scalar_one_or_none()
+    #         # Найдём лид по id
+    #         result = await session.execute(select(Lead).where(Lead.id == lead_id))
+    #         lead = result.scalar_one_or_none()
 
-            if lead:
-                lead.category = category
+    #         if lead:
+    #             lead.category = category
 
-        await session.commit()
+    #     await session.commit()
 
+    # OK
     @connection
     async def fetch_unlabeled_leads(session) -> List[Dict[str, str]]:
 
@@ -95,6 +113,8 @@ class LeadFunction:
         rows = result.all()
         return [{"id": row[0], "message": row[1]} for row in rows]
     
+
+    # OK
     @connection
     async def update_lead_categories(session, categorized_data: List[Dict[str, str]]):
         for item in categorized_data:

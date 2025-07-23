@@ -6,7 +6,7 @@ from openai import AsyncOpenAI
 
 client = AsyncOpenAI(api_key=AI_TOKEN)
 
-def send_to_openai(message: str) -> str:
+def send_to_openai_req(message: str) -> str:
     url = "https://api.openai.com/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {AI_TOKEN}",  # ← замени на свой ключ
@@ -25,7 +25,7 @@ def send_to_openai(message: str) -> str:
             {"role": "user", "content": prompt}
         ]
     }
-    print(prompt)
+    # print(prompt)
     response = requests.post(url, headers=headers, json=data)
     return response.json()["choices"][0]["message"]["content"]
 
@@ -55,11 +55,11 @@ async def ask_gpt_to_categorize(batch: List[Dict[str, str]]) -> List[Dict[str, s
 ])
 
     # 🔧 Логируем весь prompt перед отправкой
-    print("========== GPT SYSTEM PROMPT ==========")
-    print(system_prompt)
-    print("========== GPT USER INPUT (batched) ==========")
-    print(user_input)
-    print("========================================")
+    # print("========== GPT SYSTEM PROMPT ==========")
+    # print(system_prompt)
+    # print("========== GPT USER INPUT (batched) ==========")
+    # print(user_input)
+    # print("========================================")
 
     response = await client.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -73,17 +73,17 @@ async def ask_gpt_to_categorize(batch: List[Dict[str, str]]) -> List[Dict[str, s
     import json
     try:
         content = response.choices[0].message.content
-        print("========== RAW RESPONSE FROM GPT ==========")
-        print(content)
-        print("===========================================")
+        # print("========== RAW RESPONSE FROM GPT ==========")
+        # print(content)
+        # print("===========================================")
         return json.loads(content)
     except Exception as e:
         print("Ошибка парсинга JSON:", e)
-        print("Ответ GPT:", response.choices[0].message.content)
+        # print("Ответ GPT:", response.choices[0].message.content)
         return []
     
 
-async def send_to_openai(message: str) -> str:
+async def send_to_openai(data: str,message) -> str:
     url = "https://api.openai.com/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {AI_TOKEN}",  # ← замени на свой ключ
@@ -103,9 +103,10 @@ async def send_to_openai(message: str) -> str:
 — Не пиши формулы
 
 Данные:
-{message}
+{data}
 
-Вопрос: Сколько общий заявок было за последний месяц ?
+Вопрос:
+{message}
 """
     data = {
         "model": "gpt-4o",

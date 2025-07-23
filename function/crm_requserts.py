@@ -19,6 +19,7 @@ def connection(func):
 
 class CRM_DB:
     
+    # OK
     @connection
     async def get_recent_crm_leads(session):
         three_months_ago = datetime.now() - timedelta(days=90)
@@ -32,6 +33,8 @@ class CRM_DB:
         rows = result.mappings().all()  # Возвращает список словарей
         return [dict(row) for row in rows]
     
+
+    # OK
     @connection
     async def get_operator_id_name(session) -> list[tuple[int, str]]:
         result = await session.execute(
@@ -43,3 +46,22 @@ class CRM_DB:
             """)
         )
         return result.all()  # список кортежей (id, name)
+
+
+    @connection
+    async def get_operators_online_status(session, operator_ids: list[int]) -> list[dict]:
+        if not operator_ids:
+            return []
+
+        ids_str = ','.join(map(str, operator_ids))
+
+        stmt = text(f"""
+            SELECT id, online
+            FROM users
+            WHERE id IN ({ids_str})
+        """)
+
+        result = await session.execute(stmt)
+        rows = result.fetchall()
+
+        return [{"id": row[0], "online": bool(row[1])} for row in rows]
