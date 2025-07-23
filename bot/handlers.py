@@ -9,12 +9,17 @@ from function.tiktoken_function import TiktokenFunction
 from function.category_function import CategoryFunction
 from app.generator import send_to_openai
 from app.category_list import LAW_CATEGORIES
+from config import ADMIN_LIST
 
 user = Router()
 
 @user.message(F.text == '❌Отмена')
 @user.message(CommandStart())
 async def cmd_start(message:Message,state:FSMContext):
+    
+    if message.from_user.id not in ADMIN_LIST:
+        return
+    
     await state.clear()
     await message.answer(
     "*Привет! Я аналитик по лидам. Спроси — кто лучший, кто провалился, где эффективность выше.*\n\n"
