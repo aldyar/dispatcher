@@ -8,6 +8,7 @@ from sqlalchemy.sql import exists
 from database.pydantic import LeadSchema
 from typing import List, Dict
 from function.operator_function import OperatorFunction
+
 def connection(func):
     async def inner(*args, **kwargs):
         async with async_session() as session:

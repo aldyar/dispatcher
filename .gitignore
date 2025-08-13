@@ -6,3 +6,4 @@ config.py
 dev.txt
 test_cat.py
 test_leads.json
+test_sql.py

@@ -3,8 +3,17 @@ from config import AI_TOKEN
 from app.category_list import LAW_CATEGORIES
 from typing import List, Dict
 from openai import AsyncOpenAI
+from config import PROXY
+import httpx
 
-client = AsyncOpenAI(api_key=AI_TOKEN)
+proxy_url = PROXY
+
+transport = httpx.AsyncHTTPTransport(proxy=proxy_url)
+
+client = AsyncOpenAI(
+    api_key=AI_TOKEN
+    ,http_client=httpx.AsyncClient(transport=transport)
+)
 
 def send_to_openai_req(message: str) -> str:
     url = "https://api.openai.com/v1/chat/completions"
@@ -25,8 +34,15 @@ def send_to_openai_req(message: str) -> str:
             {"role": "user", "content": prompt}
         ]
     }
+    proxies = {
+        "http": PROXY,
+        "https": PROXY,
+    }
     # print(prompt)
-    response = requests.post(url, headers=headers, json=data)
+    response = requests.post(url, headers=headers, json=data, proxies=proxies)
+
+    response.raise_for_status()  # поднимет исключение, если ошибка
+
     return response.json()["choices"][0]["message"]["content"]
 
 
@@ -114,8 +130,12 @@ async def send_to_openai(data: str,message) -> str:
             {"role": "user", "content": prompt}
         ]
     }
+    proxies = {
+        "http": PROXY,
+        "https": PROXY,
+    }
     try:
-        response = requests.post(url, headers=headers, json=data)
+        response = requests.post(url, headers=headers, json=data,proxies=proxies)
         response.raise_for_status()  # выбросит ошибку, если код ответа не 2xx
         res_json = response.json()
 

@@ -154,38 +154,38 @@ class CategoryFunction:
     
 
     # Ниже похожая функция
-    # @connection
-    # async def generate_compact_stats_text(session) -> str:
-    #     stats_query = await session.execute(select(CategoryStats))
-    #     stats = stats_query.scalars().all()
+    @connection
+    async def generate_compact_stats_text(session) -> str:
+        stats_query = await session.execute(select(CategoryStats))
+        stats = stats_query.scalars().all()
 
-    #     result = ["Имя|Категория|All:Всего/Усп.(%)|W:Всего/Усп.(%)|M:Всего/Усп.(%)"]
+        result = ["Имя|Категория|All:Всего/Усп.(%)|W:Всего/Усп.(%)|M:Всего/Усп.(%)"]
 
-    #     def parse(stat_str):
-    #         try:
-    #             total, success = map(int, (stat_str or "0,0").split(","))
-    #             percent = f"{(success / total * 100):.1f}%" if total > 0 else "0%"
-    #         except Exception:
-    #             total, success, percent = 0, 0, "0%"
-    #         return total, success, percent
+        def parse(stat_str):
+            try:
+                total, success = map(int, (stat_str or "0,0").split(","))
+                percent = f"{(success / total * 100):.1f}%" if total > 0 else "0%"
+            except Exception:
+                total, success, percent = 0, 0, "0%"
+            return total, success, percent
 
-    #     for stat in stats:
-    #         operator = stat.operator_name or f"Оператор#{stat.operator_id}"
-    #         category = stat.category
+        for stat in stats:
+            operator = stat.operator_name or f"Оператор#{stat.operator_id}"
+            category = stat.category
 
-    #         all_t, all_s, all_p = parse(stat.three_month)
-    #         week_t, week_s, week_p = parse(stat.last_week)
-    #         month_t, month_s, month_p = parse(stat.last_month)
+            all_t, all_s, all_p = parse(stat.three_month)
+            week_t, week_s, week_p = parse(stat.last_week)
+            month_t, month_s, month_p = parse(stat.last_month)
 
-    #         line = (
-    #             f"{operator}|{category}"
-    #             f"|All:{all_t}/{all_s}({all_p})"
-    #             f"|W:{week_t}/{week_s}({week_p})"
-    #             f"|M:{month_t}/{month_s}({month_p})"
-    #         )
-    #         result.append(line)
+            line = (
+                f"{operator}|{category}"
+                f"|All:{all_t}/{all_s}({all_p})"
+                f"|W:{week_t}/{week_s}({week_p})"
+                f"|M:{month_t}/{month_s}({month_p})"
+            )
+            result.append(line)
 
-    #     return "\n".join(result)
+        return "\n".join(result)
 
     # @connection
     # async def get_best_operator_by_category(session, category: str):
